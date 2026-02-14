@@ -8,8 +8,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: leanprover/lean-action@c544e89643240c6b398f14a431bcdc6309e36b3e # v1
         with:
           use-mathlib-cache: true
       - run: lake build
