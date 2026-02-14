@@ -6,7 +6,7 @@ This repository contains a Lean 4 formalization of the results reported in the m
 
 We show that there is a one-round randomized distributed algorithm that can 2-color cycles such that the expected fraction of monochromatic edges is less than 0.24118. We also show that a one-round algorithm cannot achieve a fraction less than 0.23879. Before this work, the best upper and lower bounds were 0.25 and 0.2.
 
-This repository formalizes the result in the [Lean 4 proof assistant](https://github.com/suomela/cursor-sandbox).
+This repository formalizes the result in the [Lean 4 proof assistant](https://lean-lang.org).
 
 ## Remarks
 
