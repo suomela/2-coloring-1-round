@@ -154,10 +154,12 @@ lemma dirMask_lt (u v : V) : dirMask u v < (1 <<< 9) := by
   simpa [dirMask] using h012
 
 /-!
-The rest of the orbit-constancy and stabilizer-transitivity development will live here.
+This module intentionally contains only the low-level `dirMask` encoding lemmas.
 
-TODO: prove `IsPartialPermMask (dirMask u v)` and the corresponding pair-transitivity lemma:
-`dirMask u v = dirMask u' v' → ∃ σ, σ • u = u' ∧ σ • v = v'`.
+The higher-level results that were once planned here are proved in
+`N1000000Transitivity` as:
+- `dirMask_isPartialPermMask`
+- `exists_perm_of_dirMask_eq`
 -/
 
 end N1000000PairTransitivity
