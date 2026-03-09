@@ -1,6 +1,6 @@
 # 2-Coloring Cycles in One Round: Formalization in Lean 4
 
-This repository contains a Lean 4 formalization of the results reported in the manuscript **Brief Announcement: 2-Coloring Cycles in One Round**.
+This repository contains a Lean 4 formalization of the results reported in the manuscript **[2-Coloring Cycles in One Round](https://arxiv.org/abs/2603.04235)**.
 
 ## Result
 
@@ -29,6 +29,18 @@ lake build
 ```
 
 Note that this is a large project, with 17000+ lines of code, and it aims at being 100% kernel-checked. Hence compiling it from scratch may take a while (tens of minutes).
+
+You can also use `leanchecker` to ensure that there is no "environment hacking":
+
+```sh
+lake env leanchecker --fresh
+```
+
+You can see what axioms are used in the main theorems by running:
+
+```sh
+lake build Distributed2Coloring.AxiomAudit
+```
 
 ## Contact information
 
