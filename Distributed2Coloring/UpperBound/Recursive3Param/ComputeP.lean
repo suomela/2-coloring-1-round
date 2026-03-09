@@ -258,13 +258,9 @@ lemma lmarginal_AD (x : Samples 4) :
   have hunion :
       (∫⋯∫⁻_({0, 3} : Finset (Fin 4)), pInd ∂μ4) =
         ∫⋯∫⁻_({0} : Finset (Fin 4)), ∫⋯∫⁻_({3} : Finset (Fin 4)), pInd ∂μ4 ∂μ4 := by
-    have hunion' :
-        (∫⋯∫⁻_({3, 0} : Finset (Fin 4)), pInd ∂μ4) =
-          ∫⋯∫⁻_({0} : Finset (Fin 4)), ∫⋯∫⁻_({3} : Finset (Fin 4)), pInd ∂μ4 ∂μ4 := by
-      simpa [Finset.union_comm, Finset.union_assoc] using
-        (MeasureTheory.lmarginal_union (μ := μ4) (s := ({0} : Finset (Fin 4)))
-          (t := ({3} : Finset (Fin 4))) pInd measurable_pInd (by decide))
-    simpa [Finset.pair_comm] using hunion'
+    simpa [Finset.union_assoc] using
+      (MeasureTheory.lmarginal_union (μ := μ4) (s := ({0} : Finset (Fin 4)))
+        (t := ({3} : Finset (Fin 4))) pInd measurable_pInd (by decide))
   have hunion_x := congrArg (fun g => g x) hunion
   -- Peel off the `A`-integral (index `0`).
   have h0 :
