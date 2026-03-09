@@ -13,3 +13,4 @@ jobs:
         with:
           use-mathlib-cache: true
       - run: lake build
+      - run: lake env leanchecker --fresh
