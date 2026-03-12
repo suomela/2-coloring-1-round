@@ -5,6 +5,7 @@ import Mathlib.Tactic
 
 import Distributed2Coloring.LowerBound.Defs
 import Distributed2Coloring.LowerBound.EdgePatterns
+import Distributed2Coloring.LowerBound.LocalRule
 
 namespace Distributed2Coloring.LowerBound
 
@@ -26,20 +27,7 @@ The coloring used here is the simple rounding-based local rule from the report:
 namespace UpperBound
 
 open scoped BigOperators
-
-/-- Local rule: `g(0,0,0)=1`, `g(1,1,1)=0`, otherwise `g(x,y,z)=y`. -/
-def g : Bool → Bool → Bool → Bool
-  | false, false, false => true
-  | true, true, true => false
-  | _, y, _ => y
-
-lemma g_eq_iff_patterns (x y z w : Bool) :
-    g x y z = g y z w ↔
-      (x = false ∧ y = false ∧ z = false ∧ w = false) ∨
-      (x = true ∧ y = true ∧ z = true ∧ w = true) ∨
-      (x = true ∧ y = false ∧ z = false ∧ w = true) ∨
-      (x = false ∧ y = true ∧ z = true ∧ w = false) := by
-  cases x <;> cases y <;> cases z <;> cases w <;> decide
+open LocalRule
 
 /-!
 ### `n = 9`
@@ -77,75 +65,18 @@ def round9 (a : Sym9) : Bool :=
 abbrev f9 : Coloring9 :=
   fun v => g (round9 (Vertex.a v)) (round9 (Vertex.b v)) (round9 (Vertex.c v))
 
-@[simp] private lemma srcIndex_0 : Edge.srcIndex (0 : Fin 3) = (0 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma srcIndex_1 : Edge.srcIndex (1 : Fin 3) = (1 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma srcIndex_2 : Edge.srcIndex (2 : Fin 3) = (2 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_0 : Edge.dstIndex (0 : Fin 3) = (1 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_1 : Edge.dstIndex (1 : Fin 3) = (2 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_2 : Edge.dstIndex (2 : Fin 3) = (3 : Fin 4) := by
-  ext; rfl
-
-private lemma monochromatic_iff_bits (e : Edge n) :
-    Edge.monochromatic f9 e ↔
-      g (round9 (e.1 0)) (round9 (e.1 1)) (round9 (e.1 2))
-        =
-      g (round9 (e.1 1)) (round9 (e.1 2)) (round9 (e.1 3)) := by
-  classical
-  unfold Edge.monochromatic f9
-  simp [Edge.src, Edge.dst, Vertex.a, Vertex.b, Vertex.c, g, round9]
-
-private def pat0000 (e : Edge n) : Prop :=
-  e.1 0 < two9 ∧ e.1 1 < two9 ∧ e.1 2 < two9 ∧ e.1 3 < two9
-
-private def pat1111 (e : Edge n) : Prop :=
-  two9 ≤ e.1 0 ∧ two9 ≤ e.1 1 ∧ two9 ≤ e.1 2 ∧ two9 ≤ e.1 3
-
-private def pat1001 (e : Edge n) : Prop :=
-  two9 ≤ e.1 0 ∧ e.1 1 < two9 ∧ e.1 2 < two9 ∧ two9 ≤ e.1 3
-
-private def pat0110 (e : Edge n) : Prop :=
-  e.1 0 < two9 ∧ two9 ≤ e.1 1 ∧ two9 ≤ e.1 2 ∧ e.1 3 < two9
-
-private instance : DecidablePred pat0000 := by
-  intro e; dsimp [pat0000]; infer_instance
-private instance : DecidablePred pat1111 := by
-  intro e; dsimp [pat1111]; infer_instance
-private instance : DecidablePred pat1001 := by
-  intro e; dsimp [pat1001]; infer_instance
-private instance : DecidablePred pat0110 := by
-  intro e; dsimp [pat0110]; infer_instance
+private abbrev pat0000 : Edge n → Prop := EdgePatterns.Pat0000 (two := two9)
+private abbrev pat1111 : Edge n → Prop := EdgePatterns.Pat1111 (two := two9)
+private abbrev pat1001 : Edge n → Prop := EdgePatterns.Pat1001 (two := two9)
+private abbrev pat0110 : Edge n → Prop := EdgePatterns.Pat0110 (two := two9)
 
 private lemma monochromatic_iff_patterns (e : Edge n) :
     Edge.monochromatic f9 e ↔ pat0000 e ∨ pat1111 e ∨ pat1001 e ∨ pat0110 e := by
-  have hbits := monochromatic_iff_bits (e := e)
-  have hpatBits :
-      (g (round9 (e.1 0)) (round9 (e.1 1)) (round9 (e.1 2))
-          =
-        g (round9 (e.1 1)) (round9 (e.1 2)) (round9 (e.1 3)))
-        ↔
-        (round9 (e.1 0) = false ∧ round9 (e.1 1) = false ∧ round9 (e.1 2) = false ∧
-            round9 (e.1 3) = false) ∨
-        (round9 (e.1 0) = true ∧ round9 (e.1 1) = true ∧ round9 (e.1 2) = true ∧
-            round9 (e.1 3) = true) ∨
-        (round9 (e.1 0) = true ∧ round9 (e.1 1) = false ∧ round9 (e.1 2) = false ∧
-            round9 (e.1 3) = true) ∨
-        (round9 (e.1 0) = false ∧ round9 (e.1 1) = true ∧ round9 (e.1 2) = true ∧
-            round9 (e.1 3) = false) := by
-    simpa using
-      (g_eq_iff_patterns (x := round9 (e.1 0)) (y := round9 (e.1 1))
-        (z := round9 (e.1 2)) (w := round9 (e.1 3)))
-  refine (hbits.trans hpatBits).trans ?_
-  simp [pat0000, pat1111, pat1001, pat0110]
+  simpa [f9, pat0000, pat1111, pat1001, pat0110] using
+    (LocalRule.monochromatic_iff_patterns (round := round9) (two := two9)
+      (hr_true := fun a => round9_eq_true (a := a))
+      (hr_false := fun a => round9_eq_false (a := a))
+      (e := e))
 
 private abbrev Edge0000 : Type := {e : Edge n // pat0000 e}
 private abbrev Edge1111 : Type := {e : Edge n // pat1111 e}
@@ -156,7 +87,7 @@ private lemma card_edge0000 : Fintype.card Edge0000 = 24 := by
   classical
   have h :
       Fintype.card Edge0000 = (Fintype.card Small9).descFactorial 4 := by
-    simpa [Edge0000, pat0000, Small9, EdgePatterns.Pat0000, EdgePatterns.Small] using
+    simpa [Edge0000, pat0000, Small9, EdgePatterns.Small] using
       (EdgePatterns.card_pat0000 (n := n) (two := two9))
   have hnum : (Fintype.card Small9).descFactorial 4 = 24 := by
     calc
@@ -169,7 +100,7 @@ private lemma card_edge1111 : Fintype.card Edge1111 = 120 := by
   classical
   have h :
       Fintype.card Edge1111 = (Fintype.card Big9).descFactorial 4 := by
-    simpa [Edge1111, pat1111, Big9, EdgePatterns.Pat1111, EdgePatterns.Big] using
+    simpa [Edge1111, pat1111, Big9, EdgePatterns.Big] using
       (EdgePatterns.card_pat1111 (n := n) (two := two9))
   have hnum : (Fintype.card Big9).descFactorial 4 = 120 := by
     have hBig : Fintype.card Big9 = 5 := card_Big9
@@ -182,8 +113,7 @@ private lemma card_edge1001 : Fintype.card Edge1001 = 240 := by
   have h :
       Fintype.card Edge1001 =
         (Fintype.card Big9).descFactorial 2 * (Fintype.card Small9).descFactorial 2 := by
-    simpa [Edge1001, pat1001, Big9, Small9, EdgePatterns.Pat1001, EdgePatterns.Big,
-      EdgePatterns.Small] using
+    simpa [Edge1001, pat1001, Big9, Small9, EdgePatterns.Big, EdgePatterns.Small] using
       (EdgePatterns.card_pat1001 (n := n) (two := two9))
   have hnum :
       (Fintype.card Big9).descFactorial 2 * (Fintype.card Small9).descFactorial 2 = 240 := by
@@ -198,8 +128,7 @@ private lemma card_edge0110 : Fintype.card Edge0110 = 240 := by
   have h :
       Fintype.card Edge0110 =
         (Fintype.card Big9).descFactorial 2 * (Fintype.card Small9).descFactorial 2 := by
-    simpa [Edge0110, pat0110, Big9, Small9, EdgePatterns.Pat0110, EdgePatterns.Big,
-      EdgePatterns.Small] using
+    simpa [Edge0110, pat0110, Big9, Small9, EdgePatterns.Big, EdgePatterns.Small] using
       (EdgePatterns.card_pat0110 (n := n) (two := two9))
   have hnum :
       (Fintype.card Big9).descFactorial 2 * (Fintype.card Small9).descFactorial 2 = 240 := by
@@ -346,89 +275,20 @@ abbrev f (n : Nat) (hn : 5 ≤ n) : Coloring n :=
   fun v =>
     g (round n hn (Vertex.a v)) (round n hn (Vertex.b v)) (round n hn (Vertex.c v))
 
-@[simp] private lemma srcIndex_0 : Edge.srcIndex (0 : Fin 3) = (0 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma srcIndex_1 : Edge.srcIndex (1 : Fin 3) = (1 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma srcIndex_2 : Edge.srcIndex (2 : Fin 3) = (2 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_0 : Edge.dstIndex (0 : Fin 3) = (1 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_1 : Edge.dstIndex (1 : Fin 3) = (2 : Fin 4) := by
-  ext; rfl
-
-@[simp] private lemma dstIndex_2 : Edge.dstIndex (2 : Fin 3) = (3 : Fin 4) := by
-  ext; rfl
-
-private lemma monochromatic_iff_bits (e : Edge n) :
-    Edge.monochromatic (f (n := n) hn) e ↔
-      g (round (n := n) hn (e.1 0))
-          (round (n := n) hn (e.1 1))
-          (round (n := n) hn (e.1 2))
-        =
-      g (round (n := n) hn (e.1 1))
-          (round (n := n) hn (e.1 2))
-          (round (n := n) hn (e.1 3)) := by
-  classical
-  unfold Edge.monochromatic f
-  simp [Edge.src, Edge.dst, Vertex.a, Vertex.b, Vertex.c, g, round]
-
-private def pat0000 (e : Edge n) : Prop :=
-  e.1 0 < two n hn ∧ e.1 1 < two n hn ∧ e.1 2 < two n hn ∧ e.1 3 < two n hn
-
-private def pat1111 (e : Edge n) : Prop :=
-  two n hn ≤ e.1 0 ∧ two n hn ≤ e.1 1 ∧ two n hn ≤ e.1 2 ∧ two n hn ≤ e.1 3
-
-private def pat1001 (e : Edge n) : Prop :=
-  two n hn ≤ e.1 0 ∧ e.1 1 < two n hn ∧ e.1 2 < two n hn ∧ two n hn ≤ e.1 3
-
-private def pat0110 (e : Edge n) : Prop :=
-  e.1 0 < two n hn ∧ two n hn ≤ e.1 1 ∧ two n hn ≤ e.1 2 ∧ e.1 3 < two n hn
-
-private instance : DecidablePred (pat0000 (n := n) hn) := by
-  intro e
-  dsimp [pat0000]
-  infer_instance
-private instance : DecidablePred (pat1111 (n := n) hn) := by
-  intro e
-  dsimp [pat1111]
-  infer_instance
-private instance : DecidablePred (pat1001 (n := n) hn) := by
-  intro e
-  dsimp [pat1001]
-  infer_instance
-private instance : DecidablePred (pat0110 (n := n) hn) := by
-  intro e
-  dsimp [pat0110]
-  infer_instance
+private abbrev pat0000 : Edge n → Prop := EdgePatterns.Pat0000 (two := two n hn)
+private abbrev pat1111 : Edge n → Prop := EdgePatterns.Pat1111 (two := two n hn)
+private abbrev pat1001 : Edge n → Prop := EdgePatterns.Pat1001 (two := two n hn)
+private abbrev pat0110 : Edge n → Prop := EdgePatterns.Pat0110 (two := two n hn)
 
 private lemma monochromatic_iff_patterns (e : Edge n) :
     Edge.monochromatic (f (n := n) hn) e ↔
       pat0000 (n := n) hn e ∨
         pat1111 (n := n) hn e ∨ pat1001 (n := n) hn e ∨ pat0110 (n := n) hn e := by
-  have hbits := monochromatic_iff_bits (n := n) hn (e := e)
-  have hpatBits :
-      (g (round (n := n) hn (e.1 0)) (round (n := n) hn (e.1 1)) (round (n := n) hn (e.1 2))
-            =
-          g (round (n := n) hn (e.1 1)) (round (n := n) hn (e.1 2)) (round (n := n) hn (e.1 3)))
-        ↔
-        (round (n := n) hn (e.1 0) = false ∧ round (n := n) hn (e.1 1) = false ∧
-            round (n := n) hn (e.1 2) = false ∧ round (n := n) hn (e.1 3) = false) ∨
-        (round (n := n) hn (e.1 0) = true ∧ round (n := n) hn (e.1 1) = true ∧
-            round (n := n) hn (e.1 2) = true ∧ round (n := n) hn (e.1 3) = true) ∨
-        (round (n := n) hn (e.1 0) = true ∧ round (n := n) hn (e.1 1) = false ∧
-            round (n := n) hn (e.1 2) = false ∧ round (n := n) hn (e.1 3) = true) ∨
-        (round (n := n) hn (e.1 0) = false ∧ round (n := n) hn (e.1 1) = true ∧
-            round (n := n) hn (e.1 2) = true ∧ round (n := n) hn (e.1 3) = false) := by
-    simpa using
-      (g_eq_iff_patterns (x := round (n := n) hn (e.1 0)) (y := round (n := n) hn (e.1 1))
-        (z := round (n := n) hn (e.1 2)) (w := round (n := n) hn (e.1 3)))
-  refine (hbits.trans hpatBits).trans ?_
-  simp [pat0000, pat1111, pat1001, pat0110]
+  simpa [f, pat0000, pat1111, pat1001, pat0110] using
+    (LocalRule.monochromatic_iff_patterns (round := round (n := n) hn) (two := two n hn)
+      (hr_true := fun a => round_eq_true (n := n) (hn := hn) (a := a))
+      (hr_false := fun a => round_eq_false (n := n) (hn := hn) (a := a))
+      (e := e))
 
 private abbrev Edge0000 : Type := {e : Edge n // pat0000 (n := n) hn e}
 private abbrev Edge1111 : Type := {e : Edge n // pat1111 (n := n) hn e}
@@ -438,13 +298,13 @@ private abbrev Edge0110 : Type := {e : Edge n // pat0110 (n := n) hn e}
 private lemma card_edge0000 :
     Fintype.card (Edge0000 (n := n) hn) = (Fintype.card (Small (n := n) hn)).descFactorial 4 := by
   classical
-  simpa [Edge0000, pat0000, Small, EdgePatterns.Pat0000, EdgePatterns.Small] using
+  simpa [Edge0000, pat0000, Small, EdgePatterns.Small] using
     (EdgePatterns.card_pat0000 (n := n) (two := two n hn))
 
 private lemma card_edge1111 :
     Fintype.card (Edge1111 (n := n) hn) = (Fintype.card (Big (n := n) hn)).descFactorial 4 := by
   classical
-  simpa [Edge1111, pat1111, Big, EdgePatterns.Pat1111, EdgePatterns.Big] using
+  simpa [Edge1111, pat1111, Big, EdgePatterns.Big] using
     (EdgePatterns.card_pat1111 (n := n) (two := two n hn))
 
 private lemma card_edge1001 :
@@ -454,7 +314,7 @@ private lemma card_edge1001 :
         (Fintype.card (Small (n := n) hn)).descFactorial 2 := by
   classical
   simpa
-      [Edge1001, pat1001, Big, Small, EdgePatterns.Pat1001, EdgePatterns.Big, EdgePatterns.Small]
+      [Edge1001, pat1001, Big, Small, EdgePatterns.Big, EdgePatterns.Small]
     using
     (EdgePatterns.card_pat1001 (n := n) (two := two n hn))
 
@@ -465,7 +325,7 @@ private lemma card_edge0110 :
         (Fintype.card (Small (n := n) hn)).descFactorial 2 := by
   classical
   simpa
-      [Edge0110, pat0110, Big, Small, EdgePatterns.Pat0110, EdgePatterns.Big, EdgePatterns.Small]
+      [Edge0110, pat0110, Big, Small, EdgePatterns.Big, EdgePatterns.Small]
     using
     (EdgePatterns.card_pat0110 (n := n) (two := two n hn))
 

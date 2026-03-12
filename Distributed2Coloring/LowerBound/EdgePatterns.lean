@@ -1,3 +1,4 @@
+import Mathlib.Data.Fin.Tuple.Embedding
 import Mathlib.Data.Fintype.CardEmbedding
 import Mathlib.Tactic
 
@@ -62,6 +63,79 @@ private lemma small_ne_big {n : Nat} {two : Sym n} (x : Small (two := two)) (y :
   intro hxy
   exact big_ne_small (two := two) (x := y) (y := x) hxy.symm
 
+private def bigValEmbedding {n : Nat} {two : Sym n} : Big (two := two) ↪ Sym n :=
+  ⟨Subtype.val, Subtype.val_injective⟩
+
+private def smallValEmbedding {n : Nat} {two : Sym n} : Small (two := two) ↪ Sym n :=
+  ⟨Subtype.val, Subtype.val_injective⟩
+
+private lemma disjoint_range_big_small {n : Nat} {two : Sym n}
+    (ad : Fin 2 ↪ Big (two := two)) (bc : Fin 2 ↪ Small (two := two)) :
+    Disjoint (Set.range (ad.trans bigValEmbedding)) (Set.range (bc.trans smallValEmbedding)) := by
+  refine Set.disjoint_left.2 ?_
+  intro x hx hy
+  rcases hx with ⟨i, rfl⟩
+  rcases hy with ⟨j, h⟩
+  have h' : (ad i).1 = (bc j).1 := by
+    simpa [bigValEmbedding, smallValEmbedding] using h.symm
+  exact (big_ne_small (two := two) (x := ad i) (y := bc j) h').elim
+
+private lemma disjoint_range_small_big {n : Nat} {two : Sym n}
+    (bc : Fin 2 ↪ Small (two := two)) (ad : Fin 2 ↪ Big (two := two)) :
+    Disjoint (Set.range (bc.trans smallValEmbedding)) (Set.range (ad.trans bigValEmbedding)) := by
+  refine Set.disjoint_left.2 ?_
+  intro x hx hy
+  rcases hx with ⟨i, rfl⟩
+  rcases hy with ⟨j, h⟩
+  have h' : (bc i).1 = (ad j).1 := by
+    simpa [bigValEmbedding, smallValEmbedding] using h.symm
+  exact (small_ne_big (two := two) (x := bc i) (y := ad j) h').elim
+
+private def outerPos : Fin 2 ↪ Fin 4 where
+  toFun
+    | 0 => 0
+    | _ => 3
+  inj' := by decide
+
+private def innerPos : Fin 2 ↪ Fin 4 where
+  toFun
+    | 0 => 1
+    | _ => 2
+  inj' := by decide
+
+private def interleavePos : Fin 4 ↪ Fin 4 where
+  toFun
+    | 0 => 0
+    | 1 => 2
+    | 2 => 3
+    | _ => 1
+  inj' := by decide
+
+@[simp] private lemma outerPos_zero : outerPos 0 = (0 : Fin 4) := rfl
+@[simp] private lemma outerPos_one : outerPos 1 = (3 : Fin 4) := rfl
+@[simp] private lemma innerPos_zero : innerPos 0 = (1 : Fin 4) := rfl
+@[simp] private lemma innerPos_one : innerPos 1 = (2 : Fin 4) := rfl
+@[simp] private lemma interleavePos_zero : interleavePos 0 = (0 : Fin 4) := rfl
+@[simp] private lemma interleavePos_one : interleavePos 1 = (2 : Fin 4) := rfl
+@[simp] private lemma interleavePos_two : interleavePos 2 = (3 : Fin 4) := rfl
+@[simp] private lemma interleavePos_three : interleavePos 3 = (1 : Fin 4) := rfl
+
+private def embedding1001 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
+    (bc : Fin 2 ↪ Small (two := two)) : Fin 4 ↪ Sym n := by
+  let ad' : Fin 2 ↪ Sym n := ad.trans bigValEmbedding
+  let bc' : Fin 2 ↪ Sym n := bc.trans smallValEmbedding
+  exact interleavePos.trans
+    (Fin.Embedding.append (x := ad') (y := bc')
+      (disjoint_range_big_small (two := two) ad bc))
+
+private def embedding0110 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
+    (bc : Fin 2 ↪ Small (two := two)) : Fin 4 ↪ Sym n := by
+  let bc' : Fin 2 ↪ Sym n := bc.trans smallValEmbedding
+  let ad' : Fin 2 ↪ Sym n := ad.trans bigValEmbedding
+  exact interleavePos.trans
+    (Fin.Embedding.append (x := bc') (y := ad')
+      (disjoint_range_small_big (two := two) bc ad))
+
 private def tuple1001 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
     (bc : Fin 2 ↪ Small (two := two)) : Tuple 4 n :=
   fun i =>
@@ -70,56 +144,6 @@ private def tuple1001 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
     | 1 => (bc 0).1
     | 2 => (bc 1).1
     | _ => (ad 1).1
-
-private lemma tuple1001_injective {n : Nat} {two : Sym n} (ad : Fin 2 ↪ Big (two := two))
-    (bc : Fin 2 ↪ Small (two := two)) : Function.Injective (tuple1001 two ad bc) := by
-  have h01 : (0 : Fin 2) ≠ 1 := by decide
-  intro i j hij
-  fin_cases i <;> fin_cases j
-  · rfl
-  · have : (ad 0).1 = (bc 0).1 := by simpa [tuple1001] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 0) (y := bc 0) this
-  · have : (ad 0).1 = (bc 1).1 := by simpa [tuple1001] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 0) (y := bc 1) this
-  · have : (ad 0).1 = (ad 1).1 := by simpa [tuple1001] using hij
-    have : (0 : Fin 2) = 1 := by
-      apply ad.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this)
-  · have : (bc 0).1 = (ad 0).1 := by simpa [tuple1001] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 0) (y := ad 0) this
-  · rfl
-  · have : (bc 0).1 = (bc 1).1 := by simpa [tuple1001] using hij
-    have : (0 : Fin 2) = 1 := by
-      apply bc.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this)
-  · have : (bc 0).1 = (ad 1).1 := by simpa [tuple1001] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 0) (y := ad 1) this
-  · have : (bc 1).1 = (ad 0).1 := by simpa [tuple1001] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 1) (y := ad 0) this
-  · have : (bc 1).1 = (bc 0).1 := by simpa [tuple1001] using hij
-    have : (1 : Fin 2) = 0 := by
-      apply bc.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this.symm)
-  · rfl
-  · have : (bc 1).1 = (ad 1).1 := by simpa [tuple1001] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 1) (y := ad 1) this
-  · have : (ad 1).1 = (ad 0).1 := by simpa [tuple1001] using hij
-    have : (1 : Fin 2) = 0 := by
-      apply ad.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this.symm)
-  · have : (ad 1).1 = (bc 0).1 := by simpa [tuple1001] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 1) (y := bc 0) this
-  · have : (ad 1).1 = (bc 1).1 := by simpa [tuple1001] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 1) (y := bc 1) this
-  · rfl
 
 private def tuple0110 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
     (bc : Fin 2 ↪ Small (two := two)) : Tuple 4 n :=
@@ -130,55 +154,27 @@ private def tuple0110 {n : Nat} (two : Sym n) (ad : Fin 2 ↪ Big (two := two))
     | 2 => (ad 1).1
     | _ => (bc 1).1
 
+private lemma tuple1001_eq_embedding1001 {n : Nat} {two : Sym n} (ad : Fin 2 ↪ Big (two := two))
+    (bc : Fin 2 ↪ Small (two := two)) :
+    tuple1001 two ad bc = embedding1001 two ad bc := by
+  funext i
+  fin_cases i <;> rfl
+
+private lemma tuple0110_eq_embedding0110 {n : Nat} {two : Sym n} (ad : Fin 2 ↪ Big (two := two))
+    (bc : Fin 2 ↪ Small (two := two)) :
+    tuple0110 two ad bc = embedding0110 two ad bc := by
+  funext i
+  fin_cases i <;> rfl
+
+private lemma tuple1001_injective {n : Nat} {two : Sym n} (ad : Fin 2 ↪ Big (two := two))
+    (bc : Fin 2 ↪ Small (two := two)) : Function.Injective (tuple1001 two ad bc) := by
+  simpa [tuple1001_eq_embedding1001 (two := two) ad bc] using
+    (embedding1001 two ad bc).injective
+
 private lemma tuple0110_injective {n : Nat} {two : Sym n} (ad : Fin 2 ↪ Big (two := two))
     (bc : Fin 2 ↪ Small (two := two)) : Function.Injective (tuple0110 two ad bc) := by
-  have h01 : (0 : Fin 2) ≠ 1 := by decide
-  intro i j hij
-  fin_cases i <;> fin_cases j
-  · rfl
-  · have : (bc 0).1 = (ad 0).1 := by simpa [tuple0110] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 0) (y := ad 0) this
-  · have : (bc 0).1 = (ad 1).1 := by simpa [tuple0110] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 0) (y := ad 1) this
-  · have : (bc 0).1 = (bc 1).1 := by simpa [tuple0110] using hij
-    have : (0 : Fin 2) = 1 := by
-      apply bc.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this)
-  · have : (ad 0).1 = (bc 0).1 := by simpa [tuple0110] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 0) (y := bc 0) this
-  · rfl
-  · have : (ad 0).1 = (ad 1).1 := by simpa [tuple0110] using hij
-    have : (0 : Fin 2) = 1 := by
-      apply ad.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this)
-  · have : (ad 0).1 = (bc 1).1 := by simpa [tuple0110] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 0) (y := bc 1) this
-  · have : (ad 1).1 = (bc 0).1 := by simpa [tuple0110] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 1) (y := bc 0) this
-  · have : (ad 1).1 = (ad 0).1 := by simpa [tuple0110] using hij
-    have : (1 : Fin 2) = 0 := by
-      apply ad.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this.symm)
-  · rfl
-  · have : (ad 1).1 = (bc 1).1 := by simpa [tuple0110] using hij
-    exact False.elim <| big_ne_small (two := two) (x := ad 1) (y := bc 1) this
-  · have : (bc 1).1 = (bc 0).1 := by simpa [tuple0110] using hij
-    have : (1 : Fin 2) = 0 := by
-      apply bc.injective
-      apply Subtype.ext
-      exact this
-    exact False.elim (h01 this.symm)
-  · have : (bc 1).1 = (ad 0).1 := by simpa [tuple0110] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 1) (y := ad 0) this
-  · have : (bc 1).1 = (ad 1).1 := by simpa [tuple0110] using hij
-    exact False.elim <| small_ne_big (two := two) (x := bc 1) (y := ad 1) this
-  · rfl
+  simpa [tuple0110_eq_embedding0110 (two := two) ad bc] using
+    (embedding0110 two ad bc).injective
 
 theorem card_pat0000 :
     Fintype.card {e : Edge n // Pat0000 (two := two) e}
@@ -264,40 +260,17 @@ theorem card_pat1001 :
   let toProd : {e : Edge n // Pat1001 (two := two) e} →
       (Fin 2 ↪ Big (two := two)) × (Fin 2 ↪ Small (two := two)) :=
     fun e =>
-      ( { toFun := fun i =>
-            match i.1 with
-            | 0 => ⟨e.1.1 0, by simpa [Pat1001] using e.2.1⟩
-            | _ => ⟨e.1.1 3, by simpa [Pat1001] using e.2.2.2.2⟩
-          inj' := by
-            intro i j hij
-            fin_cases i <;> fin_cases j
-            · rfl
-            · exfalso
-              have hIdx : (0 : Fin 4) = (3 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (0 : Fin 4) ≠ (3 : Fin 4)) hIdx
-            · exfalso
-              have hIdx : (3 : Fin 4) = (0 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (3 : Fin 4) ≠ (0 : Fin 4)) hIdx
-            · rfl },
-        { toFun := fun i =>
-            match i.1 with
-            | 0 => ⟨e.1.1 1, by simpa [Pat1001] using e.2.2.1⟩
-            | _ => ⟨e.1.1 2, by simpa [Pat1001] using e.2.2.2.1⟩
-          inj' := by
-            intro i j hij
-            fin_cases i <;> fin_cases j
-            · rfl
-            · exfalso
-              have hIdx : (1 : Fin 4) = (2 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (1 : Fin 4) ≠ (2 : Fin 4)) hIdx
-            · exfalso
-              have hIdx : (2 : Fin 4) = (1 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (2 : Fin 4) ≠ (1 : Fin 4)) hIdx
-            · rfl } )
+      let emb : Fin 4 ↪ Sym n := ⟨e.1.1, e.1.2⟩
+      ( (outerPos.trans emb).codRestrict (Set.Ici two) (by
+            intro i
+            fin_cases i
+            · simpa [emb, Pat1001] using e.2.1
+            · simpa [emb, Pat1001] using e.2.2.2.2)
+      , (innerPos.trans emb).codRestrict (Set.Iio two) (by
+            intro i
+            fin_cases i
+            · simpa [emb, Pat1001] using e.2.2.1
+            · simpa [emb, Pat1001] using e.2.2.2.1) )
   let ofProd : (Fin 2 ↪ Big (two := two)) × (Fin 2 ↪ Small (two := two)) →
       {e : Edge n // Pat1001 (two := two) e} :=
     fun p =>
@@ -334,40 +307,17 @@ theorem card_pat0110 :
   let toProd : {e : Edge n // Pat0110 (two := two) e} →
       (Fin 2 ↪ Big (two := two)) × (Fin 2 ↪ Small (two := two)) :=
     fun e =>
-      ( { toFun := fun i =>
-            match i.1 with
-            | 0 => ⟨e.1.1 1, by simpa [Pat0110] using e.2.2.1⟩
-            | _ => ⟨e.1.1 2, by simpa [Pat0110] using e.2.2.2.1⟩
-          inj' := by
-            intro i j hij
-            fin_cases i <;> fin_cases j
-            · rfl
-            · exfalso
-              have hIdx : (1 : Fin 4) = (2 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (1 : Fin 4) ≠ (2 : Fin 4)) hIdx
-            · exfalso
-              have hIdx : (2 : Fin 4) = (1 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (2 : Fin 4) ≠ (1 : Fin 4)) hIdx
-            · rfl },
-        { toFun := fun i =>
-            match i.1 with
-            | 0 => ⟨e.1.1 0, by simpa [Pat0110] using e.2.1⟩
-            | _ => ⟨e.1.1 3, by simpa [Pat0110] using e.2.2.2.2⟩
-          inj' := by
-            intro i j hij
-            fin_cases i <;> fin_cases j
-            · rfl
-            · exfalso
-              have hIdx : (0 : Fin 4) = (3 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (0 : Fin 4) ≠ (3 : Fin 4)) hIdx
-            · exfalso
-              have hIdx : (3 : Fin 4) = (0 : Fin 4) :=
-                e.1.2 (by simpa using congrArg Subtype.val hij)
-              exact (by decide : (3 : Fin 4) ≠ (0 : Fin 4)) hIdx
-            · rfl } )
+      let emb : Fin 4 ↪ Sym n := ⟨e.1.1, e.1.2⟩
+      ( (innerPos.trans emb).codRestrict (Set.Ici two) (by
+            intro i
+            fin_cases i
+            · simpa [emb, Pat0110] using e.2.2.1
+            · simpa [emb, Pat0110] using e.2.2.2.1)
+      , (outerPos.trans emb).codRestrict (Set.Iio two) (by
+            intro i
+            fin_cases i
+            · simpa [emb, Pat0110] using e.2.1
+            · simpa [emb, Pat0110] using e.2.2.2.2) )
   let ofProd : (Fin 2 ↪ Big (two := two)) × (Fin 2 ↪ Small (two := two)) →
       {e : Edge n // Pat0110 (two := two) e} :=
     fun p =>

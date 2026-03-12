@@ -35,6 +35,30 @@ def srcIndex (i : Fin 3) : Fin 4 :=
 def dstIndex (i : Fin 3) : Fin 4 :=
   ⟨i.1 + 1, Nat.succ_lt_succ i.2⟩
 
+@[simp] lemma srcIndex_zero : srcIndex (0 : Fin 3) = (0 : Fin 4) := by
+  ext
+  rfl
+
+@[simp] lemma srcIndex_one : srcIndex (1 : Fin 3) = (1 : Fin 4) := by
+  ext
+  rfl
+
+@[simp] lemma srcIndex_two : srcIndex (2 : Fin 3) = (2 : Fin 4) := by
+  ext
+  rfl
+
+@[simp] lemma dstIndex_zero : dstIndex (0 : Fin 3) = (1 : Fin 4) := by
+  ext
+  rfl
+
+@[simp] lemma dstIndex_one : dstIndex (1 : Fin 3) = (2 : Fin 4) := by
+  ext
+  rfl
+
+@[simp] lemma dstIndex_two : dstIndex (2 : Fin 3) = (3 : Fin 4) := by
+  ext
+  rfl
+
 /-- Source vertex of an edge `(a,b,c,d)`, i.e. `(a,b,c)`. -/
 def src {n : Nat} (e : Edge n) : Vertex n :=
   ⟨fun i => e.1 (srcIndex i), by

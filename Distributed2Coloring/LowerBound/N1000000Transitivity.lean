@@ -34,7 +34,6 @@ abbrev DirIdx := N1000000StructureConstants.DirIdx
 abbrev AvailFrom3 := AvailFrom (s := 3)
 
 noncomputable instance : Fintype G := by infer_instance
-noncomputable instance : Fintype (Equiv.Perm AvailFrom3) := Fintype.ofFinite _
 
 theorem dirMask_smul (σ : G) (u v : V) : dirMask (σ • u) (σ • v) = dirMask u v := by
   classical
@@ -121,78 +120,85 @@ theorem exists_perm_send_to_base (u : V) : ∃ σ : G, σ • u = baseVertex := 
 theorem exists_perm_fixing_base_of_baseOrbit (k : DirIdx) (w w' : BaseOrbit k) :
     ∃ τ : G, τ • baseVertex = baseVertex ∧ τ • w.1 = w'.1 := by
   classical
-  -- Build embeddings of the free columns into `AvailFrom3` (symbols `≥ 3`).
   let keyEmb (z : BaseOrbit k) : FreeCol k ↪ AvailFrom3 :=
     ⟨fun j => ⟨z.1.1 j.1, baseOrbit_freeCoord_outside (u := z) j⟩, by
       intro a b hab
       apply Subtype.ext
-      -- Reduce to injectivity of the underlying vertex tuple.
       have : z.1.1 a.1 = z.1.1 b.1 := by
         simpa using congrArg Subtype.val hab
-      have : a.1 = b.1 := z.1.2 this
-      exact this⟩
+      exact z.1.2 this⟩
+  let cutoff : SymN := ⟨3, by decide⟩
+  let baseSet : Set SymN := Set.Iio cutoff
+  let availEquiv : AvailFrom3 ≃ ↥(SubMulAction.ofFixingSubgroup G baseSet) := by
+    refine
+      { toFun := fun x => ⟨x.1, by
+            change ¬ x.1 < cutoff
+            exact not_lt.2 (by simpa [cutoff] using x.2)⟩
+        invFun := fun x => ⟨x.1, by
+            have hx : x.1 ∉ baseSet := x.2
+            have hx' : ¬ x.1 < cutoff := by
+              simpa [baseSet] using hx
+            simpa [cutoff] using (not_lt.1 hx')⟩
+        left_inv := by intro x; rfl
+        right_inv := by intro x; rfl }
   let m : Nat := Fintype.card (FreeCol k)
   let e : FreeCol k ≃ Fin m := Fintype.equivFin (FreeCol k)
-  let x : Fin m ↪ AvailFrom3 := (e.symm.toEmbedding).trans (keyEmb w)
-  let y : Fin m ↪ AvailFrom3 := (e.symm.toEmbedding).trans (keyEmb w')
-  have hmtp : MulAction.IsMultiplyPretransitive (Equiv.Perm AvailFrom3) AvailFrom3 m :=
-    Equiv.Perm.isMultiplyPretransitive (α := AvailFrom3) m
+  let x : Fin m ↪ SubMulAction.ofFixingSubgroup G baseSet :=
+    (e.symm.toEmbedding).trans ((keyEmb w).trans availEquiv.toEmbedding)
+  let y : Fin m ↪ SubMulAction.ofFixingSubgroup G baseSet :=
+    (e.symm.toEmbedding).trans ((keyEmb w').trans availEquiv.toEmbedding)
+  letI : MulAction.IsMultiplyPretransitive G SymN (baseSet.ncard + m) :=
+    Equiv.Perm.isMultiplyPretransitive (α := SymN) (baseSet.ncard + m)
+  have hmtp :
+      MulAction.IsMultiplyPretransitive (fixingSubgroup G baseSet)
+        (SubMulAction.ofFixingSubgroup G baseSet) m :=
+    SubMulAction.ofFixingSubgroup.isMultiplyPretransitive (G := G) (s := baseSet)
+      (m := m) (n := baseSet.ncard + m) rfl
   have hEmb :
-      ∀ x y : Fin m ↪ AvailFrom3, ∃ π : Equiv.Perm AvailFrom3, π • x = y :=
-    (MulAction.isMultiplyPretransitive_iff (G := Equiv.Perm AvailFrom3) (α := AvailFrom3) (n := m)).1 hmtp
-  rcases hEmb x y with ⟨π, hπ⟩
-  let τ : G := π.extendDomain (Equiv.refl AvailFrom3)
-  refine ⟨τ, ?_, ?_⟩
-  · -- `τ` fixes `baseVertex` because its coordinates are not in `AvailFrom3`.
+      ∀ x y : Fin m ↪ SubMulAction.ofFixingSubgroup G baseSet,
+        ∃ τ : fixingSubgroup G baseSet, τ • x = y :=
+    (MulAction.isMultiplyPretransitive_iff
+      (G := fixingSubgroup G baseSet)
+      (α := SubMulAction.ofFixingSubgroup G baseSet)
+      (n := m)).1 hmtp
+  rcases hEmb x y with ⟨τ, hτ⟩
+  refine ⟨τ.1, ?_, ?_⟩
+  · have hfix := (mem_fixingSubgroup_iff G).1 τ.2
     apply Subtype.ext
     funext i
-    have hnot : ¬(3 ≤ (baseVertex.1 i).1) := by
+    have hi : baseVertex.1 i ∈ baseSet := by
+      change (baseVertex.1 i : SymN) < cutoff
       fin_cases i <;> decide
-    -- `extendDomain_apply_not_subtype` since `¬p`.
-    simpa [τ] using (Equiv.Perm.extendDomain_apply_not_subtype (e := π) (f := (Equiv.refl AvailFrom3)) (b := baseVertex.1 i) hnot)
-  · -- `τ` maps `w` to `w'` coordinatewise.
+    simpa using hfix (baseVertex.1 i) hi
+  · have hfix := (mem_fixingSubgroup_iff G).1 τ.2
     apply Subtype.ext
     funext j
-    -- Compare column match on the fixed mask `(maskAt k)`.
     cases hcol : colMatch (maskAt k) j with
     | none =>
         have hj : colMatch (maskAt k) j = none := by simp [hcol]
         let jf : FreeCol k := ⟨j, hj⟩
-        have hout : 3 ≤ (w.1.1 j).1 := baseOrbit_freeCoord_outside (u := w) jf
-        have hout' : 3 ≤ (w'.1.1 j).1 := baseOrbit_freeCoord_outside (u := w') jf
-        -- Show `π` maps the outside symbol at `j` from `w` to that of `w'`.
-        have hπ_apply : π ⟨w.1.1 j, hout⟩ = ⟨w'.1.1 j, hout'⟩ := by
-          -- Evaluate `hπ` at the corresponding index.
-          let i : Fin m := e jf
-          have hx : x i = ⟨w.1.1 j, hout⟩ := by
-            -- unfold `x` and `keyEmb`
-            simp [x, keyEmb, e, i, jf, Function.Embedding.trans_apply]
-          have hy : y i = ⟨w'.1.1 j, hout'⟩ := by
-            simp [y, keyEmb, e, i, jf, Function.Embedding.trans_apply]
-          have := congrArg (fun (t : Fin m ↪ AvailFrom3) => t i) hπ
-          -- Action on embeddings is pointwise.
-          -- `π • x` is composition, so `(π • x) i = π (x i)`.
-          simpa [hx, hy] using this
-        -- Apply `extendDomain` on an element inside `AvailFrom3`.
-        have hτ_out :
-            τ (w.1.1 j) = (π ⟨w.1.1 j, hout⟩ : AvailFrom3).1 := by
-          simpa [τ] using
-            (Equiv.Perm.extendDomain_apply_subtype (e := π) (f := (Equiv.refl AvailFrom3)) (b := w.1.1 j) (h := hout))
-        have : τ (w.1.1 j) = w'.1.1 j := by
-          -- rewrite via `hπ_apply`
-          simpa [hτ_out] using congrArg Subtype.val hπ_apply
+        let i : Fin m := e jf
+        have hτ_apply :
+            τ • (((keyEmb w).trans availEquiv.toEmbedding) jf) =
+              ((keyEmb w').trans availEquiv.toEmbedding) jf := by
+          have := congrArg
+            (fun t : Fin m ↪ SubMulAction.ofFixingSubgroup G baseSet => t i) hτ
+          simpa [x, y, e, i, jf, Function.Embedding.trans_apply] using this
+        have : τ.1 (w.1.1 j) = w'.1.1 j := by
+          simpa [keyEmb, availEquiv, Function.Embedding.trans_apply] using
+            congrArg Subtype.val hτ_apply
         simpa using this
     | some i =>
         have hi : colMatch (maskAt k) j = some i := by simp [hcol]
         have hw : w.1.1 j = baseVertex.1 i := base_eq_of_colMatch (u := w) (j := j) (i := i) hi
         have hw' : w'.1.1 j = baseVertex.1 i := base_eq_of_colMatch (u := w') (j := j) (i := i) hi
-        have hnot : ¬(3 ≤ (baseVertex.1 i).1) := by
+        have hbase : baseVertex.1 i ∈ baseSet := by
+          change (baseVertex.1 i : SymN) < cutoff
           fin_cases i <;> decide
-        have hτ_base : τ (baseVertex.1 i) = baseVertex.1 i := by
-          simpa [τ] using (Equiv.Perm.extendDomain_apply_not_subtype (e := π) (f := (Equiv.refl AvailFrom3)) (b := baseVertex.1 i) hnot)
+        have hτ_base : τ.1 (baseVertex.1 i) = baseVertex.1 i := hfix _ hbase
         calc
-          (τ • w.1).1 j = τ (w.1.1 j) := rfl
-          _ = τ (baseVertex.1 i) := by simp [hw]
+          (τ.1 • w.1).1 j = τ.1 (w.1.1 j) := rfl
+          _ = τ.1 (baseVertex.1 i) := by simp [hw]
           _ = baseVertex.1 i := hτ_base
           _ = w'.1.1 j := by simp [hw']
 

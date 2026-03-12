@@ -1,5 +1,6 @@
 import Mathlib.Data.Fintype.CardEmbedding
 import Mathlib.Data.ZMod.Basic
+import Mathlib.Logic.Equiv.Fin.Rotate
 import Mathlib.Tactic
 
 import Distributed2Coloring.LowerBound.Defs
@@ -42,65 +43,26 @@ We also record the “missing” index in the `5`-tuple.
 -/
 
 def idx4 (k : Fin 5) : Fin 4 → Fin 5 :=
-  match k.1 with
-  | 0 =>
-      fun i =>
-        match i.1 with
-        | 0 => 0
-        | 1 => 1
-        | 2 => 2
-        | _ => 3
-  | 1 =>
-      fun i =>
-        match i.1 with
-        | 0 => 1
-        | 1 => 2
-        | 2 => 3
-        | _ => 4
-  | 2 =>
-      fun i =>
-        match i.1 with
-        | 0 => 2
-        | 1 => 3
-        | 2 => 4
-        | _ => 0
-  | 3 =>
-      fun i =>
-        match i.1 with
-        | 0 => 3
-        | 1 => 4
-        | 2 => 0
-        | _ => 1
-  | _ =>
-      fun i =>
-        match i.1 with
-        | 0 => 4
-        | 1 => 0
-        | 2 => 1
-        | _ => 2
+  fun i => k + i.castAdd 1
 
 def next (k : Fin 5) : Fin 5 :=
-  match k.1 with
-  | 0 => 1
-  | 1 => 2
-  | 2 => 3
-  | 3 => 4
-  | _ => 0
+  k + 1
 
 def remIndex (k : Fin 5) : Fin 5 :=
-  match k.1 with
-  | 0 => 4
-  | 1 => 0
-  | 2 => 1
-  | 3 => 2
-  | _ => 3
+  k + 4
 
 private lemma idx4_injective (k : Fin 5) : Function.Injective (idx4 k) := by
   intro i j hij
-  fin_cases k <;> fin_cases i <;> fin_cases j <;> cases hij <;> rfl
+  have hcast : (i.castAdd 1 : Fin 5) = j.castAdd 1 := by
+    simpa [idx4] using congrArg (fun x : Fin 5 => x - k) hij
+  exact Fin.castAdd_injective _ _ hcast
 
 private lemma idx4_ne_remIndex (k : Fin 5) (i : Fin 4) : idx4 k i ≠ remIndex k := by
-  fin_cases k <;> fin_cases i <;> decide
+  intro h
+  have hcast : (i.castAdd 1 : Fin 5) = 4 := by
+    simpa [idx4, remIndex] using congrArg (fun x : Fin 5 => x - k) h
+  have hne : ((i.castAdd 1 : Fin 5) : Nat) ≠ 4 := Nat.ne_of_lt i.2
+  exact hne (by simpa using congrArg Fin.val hcast)
 
 noncomputable def edgeAt (t : Emb5) (k : Fin 5) : Edge n :=
   ⟨fun i => t (idx4 k i), by
@@ -112,7 +74,8 @@ private lemma dst_edgeAt_eq_src_edgeAt_next (t : Emb5) (k : Fin 5) :
   classical
   apply Subtype.ext
   funext i
-  fin_cases k <;> fin_cases i <;> rfl
+  fin_cases i <;>
+    simp [Edge.dst, Edge.src, Edge.dstIndex, Edge.srcIndex, edgeAt, idx4, next, add_assoc]
 
 /-!
 ### An odd cycle has a monochromatic edge
@@ -129,7 +92,7 @@ private lemma monochromatic_edgeAt_iff (f : Coloring9) (t : Emb5) (k : Fin 5) :
       f (Edge.src (edgeAt t k)) = f (Edge.src (edgeAt t (next k))) := by
   have h := dst_edgeAt_eq_src_edgeAt_next (t := t) (k := k)
   unfold Edge.monochromatic
-  simpa [h]
+  simp [h]
 
 private lemma exists_mono_edge_in_cycle (f : Coloring9) (t : Emb5) :
     ∃ k : Fin 5, Edge.monochromatic f (edgeAt t k) := by
@@ -276,7 +239,7 @@ noncomputable def edgeExtraKToCyclePair : EdgeExtraK → CyclePairs
         | none =>
             cases hcj : choice k j with
             | none =>
-                exact choice_injective k (by simpa [hci, hcj])
+                exact choice_injective k (by simp [hci, hcj])
             | some j' =>
                 have : r = e.1 j' := by simpa [tFun, hci, hcj] using hij
                 exact False.elim (hrne j' this)
@@ -287,7 +250,7 @@ noncomputable def edgeExtraKToCyclePair : EdgeExtraK → CyclePairs
                 exact False.elim (hrne i' this.symm)
             | some j' =>
                 have hij' : i' = j' := e.2 (by simpa [tFun, hci, hcj] using hij)
-                exact choice_injective k (by simpa [hci, hcj, hij'])
+                exact choice_injective k (by simp [hci, hcj, hij'])
       (⟨tFun, ht⟩, k)
 
 noncomputable def cyclePairEquiv : CyclePairs ≃ EdgeExtraK where
@@ -313,12 +276,12 @@ noncomputable def cyclePairEquiv : CyclePairs ≃ EdgeExtraK where
       apply Subtype.ext
       funext i
       fin_cases k <;> fin_cases i <;>
-        simp [cyclePairToEdgeExtraK, edgeExtraKToCyclePair, edgeAt, choice, idx4, remIndex, hr]
+        simp [cyclePairToEdgeExtraK, edgeExtraKToCyclePair, edgeAt, choice, idx4, remIndex]
     · -- `(Sym9 × Fin 5)` component
       apply Prod.ext
       · -- the “extra” symbol is exactly `r`
         fin_cases k <;>
-          simp [cyclePairToEdgeExtraK, edgeExtraKToCyclePair, choice, idx4, remIndex, hr]
+          simp [cyclePairToEdgeExtraK, edgeExtraKToCyclePair, choice, remIndex]
       · rfl
 
 private lemma card_cycleMonoPairs_eq (f : Coloring9) :
@@ -375,7 +338,7 @@ private lemma card_cycleMonoPairs_eq (f : Coloring9) :
           have hE : Fintype.card (Extra e.1) = 5 := card_extra e.1
           simp [Fintype.card_prod, hE, Fintype.card_fin]
     _ = (Fintype.card {e : Edge n // Edge.monochromatic f e}) * 25 := by
-          simp [Finset.sum_const, Nat.nsmul_eq_mul, mul_comm]
+          simp [Finset.sum_const, mul_comm]
     _ = monoCount f * 25 := by simp [hmono]
     _ = 25 * monoCount f := by ac_rfl
 
@@ -394,7 +357,7 @@ private lemma monoCount_ge_605 (f : Coloring9) : 605 ≤ monoCount f := by
     Fintype.card_le_of_injective inj hinj
   have hEmb5 : Fintype.card Emb5 = 15120 := by
     have : Fintype.card Emb5 = (9 : Nat).descFactorial 5 := by
-      simpa [Emb5, Sym9, Sym, n, Fintype.card_embedding_eq]
+      simp [Emb5, Sym9, Sym, n, Fintype.card_embedding_eq]
     exact this.trans (by decide : (9 : Nat).descFactorial 5 = 15120)
   have hPairs : Fintype.card (CycleMonoPairs f) = 25 * monoCount f :=
     card_cycleMonoPairs_eq (f := f)
@@ -415,13 +378,10 @@ private lemma monoIndicator_zmod2 (f : Coloring9) (e : Edge n) :
     (if Edge.monochromatic f e then (1 : ZMod 2) else 0)
       = (1 : ZMod 2) + bit (f (Edge.src e)) + bit (f (Edge.dst e)) := by
   unfold bit Edge.monochromatic
-  by_cases hs : f (Edge.src e) <;> by_cases ht : f (Edge.dst e) <;> simp [hs, ht] <;> decide
+  by_cases hs : f (Edge.src e) <;> by_cases ht : f (Edge.dst e) <;>
+    simp only [hs, ht] <;> decide
 
-private def rotIndex : Equiv.Perm (Fin 4) :=
-  ⟨fun i => match i.1 with | 0 => 1 | 1 => 2 | 2 => 3 | _ => 0,
-    fun i => match i.1 with | 0 => 3 | 1 => 0 | 2 => 1 | _ => 2,
-    by intro i; fin_cases i <;> rfl,
-    by intro i; fin_cases i <;> rfl⟩
+private abbrev rotIndex : Equiv.Perm (Fin 4) := finRotate 4
 
 private noncomputable def rotEdge : Edge n ≃ Edge n where
   toFun := fun e => ⟨fun i => e.1 (rotIndex i), by
@@ -442,19 +402,19 @@ private noncomputable def rotEdge : Edge n ≃ Edge n where
     funext i
     -- `rotIndex (rotIndex⁻¹ i) = i`.
     have := congrArg e.1 (rotIndex.apply_symm_apply i)
-    simpa using this
+    exact this
   right_inv := by
     intro e
     apply Subtype.ext
     funext i
     -- `rotIndex⁻¹ (rotIndex i) = i`.
     have := congrArg e.1 (rotIndex.symm_apply_apply i)
-    simpa using this
+    exact this
 
 private lemma edge_src_rotEdge (e : Edge n) : Edge.src (rotEdge e) = Edge.dst e := by
   apply Subtype.ext
   funext i
-  fin_cases i <;> rfl
+  fin_cases i <;> simp [rotEdge, rotIndex, Edge.src, Edge.dst]
 
 private lemma sum_bit_src_eq_sum_bit_dst (f : Coloring9) :
     (∑ e : Edge n, bit (f (Edge.src e))) = ∑ e : Edge n, bit (f (Edge.dst e)) := by
@@ -476,11 +436,10 @@ private lemma monoCount_zmod2_eq_edgeCount_zmod2 (f : Coloring9) :
     let p : Edge n → Prop := Edge.monochromatic f
     let s : Finset (Edge n) := (Finset.univ : Finset (Edge n)).filter p
     have hNat : s.card = s.sum (fun _ => (1 : Nat)) := by
-      simpa using (Finset.card_eq_sum_ones (s := s))
+      exact Finset.card_eq_sum_ones (s := s)
     have hCast : (s.card : ZMod 2) = s.sum (fun _ => (1 : ZMod 2)) := by
-      have h := congrArg (fun m : Nat => (m : ZMod 2)) hNat
-      -- cast the `Nat` sum into a `ZMod 2` sum
-      simpa [Nat.cast_sum] using h
+      convert congrArg (fun m : Nat => (m : ZMod 2)) hNat using 1
+      · simp
     -- rewrite `monoCount` in terms of `s`
     have hs : monoCount f = s.card := by
       simp [monoCount, monoEdges, s, p]
@@ -490,12 +449,11 @@ private lemma monoCount_zmod2_eq_edgeCount_zmod2 (f : Coloring9) :
           = (∑ e : Edge n, if p e then (1 : ZMod 2) else 0) := by
       -- `sum_filter` moves the predicate from the finset into the summand.
       -- (`∑ e : Edge n, _` is `Finset.univ.sum _`.)
-      simpa [s, p] using
-        (Finset.sum_filter (s := (Finset.univ : Finset (Edge n))) (p := p)
-          (f := fun _e : Edge n => (1 : ZMod 2)))
+      dsimp [s, p]
+      rw [Finset.sum_filter]
     -- put it together
     calc
-      (monoCount f : ZMod 2) = (s.card : ZMod 2) := by simpa [hs]
+      (monoCount f : ZMod 2) = (s.card : ZMod 2) := by rw [hs]
       _ = s.sum (fun _ => (1 : ZMod 2)) := hCast
       _ = ∑ e : Edge n, (if p e then (1 : ZMod 2) else 0) := hsum
   calc
@@ -509,7 +467,7 @@ private lemma monoCount_zmod2_eq_edgeCount_zmod2 (f : Coloring9) :
           + (∑ e : Edge n, bit (f (Edge.src e)))
           + (∑ e : Edge n, bit (f (Edge.dst e))) := by
           -- distribute `sum` across `+`
-          simp [add_assoc, add_left_comm, add_comm, Finset.sum_add_distrib]
+          simp [add_left_comm, add_comm, Finset.sum_add_distrib]
     _ = (edgeCount n : ZMod 2)
           + (∑ e : Edge n, bit (f (Edge.src e)))
           + (∑ e : Edge n, bit (f (Edge.src e))) := by
@@ -521,7 +479,7 @@ private lemma monoCount_zmod2_eq_edgeCount_zmod2 (f : Coloring9) :
             simpa using
               (CharTwo.add_self_eq_zero (R := ZMod 2) (x := ∑ e : Edge n, bit (f (Edge.src e))))
           -- clean up the associativity
-          simpa [add_assoc, add_left_comm, add_comm, hself]
+          simp [add_left_comm, add_comm, hself]
 
 private lemma edgeCount_9 : edgeCount n = 3024 := by
   classical
@@ -533,8 +491,10 @@ private lemma edgeCount_9 : edgeCount n = 3024 := by
           left_inv := by intro e; apply Subtype.ext; funext i; rfl
           right_inv := by intro x; ext i; rfl }
     have hcongr : edgeCount n = Fintype.card (Fin 4 ↪ Sym n) := by
-      simpa [edgeCount] using this
-    simpa [hcongr, Sym, n, Fintype.card_embedding_eq]
+      rw [edgeCount]
+      exact this
+    rw [hcongr]
+    simp [Sym, n, Fintype.card_embedding_eq]
   exact this.trans (by decide : (9 : Nat).descFactorial 4 = 3024)
 
 private lemma monoCount_even (f : Coloring9) : Even (monoCount f) := by

@@ -20,7 +20,6 @@ import Distributed2Coloring.LowerBound
 -/
 
 import Distributed2Coloring.LowerBound.Defs
-import Distributed2Coloring.LowerBound.MatrixFacts
 import Distributed2Coloring.LowerBound.OverlapType
 import Distributed2Coloring.LowerBound.N1000000Data
 import Distributed2Coloring.LowerBound.N1000000ZData
